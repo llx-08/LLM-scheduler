@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@192.168.1.151:10401 password (22)" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@192.168.1.151:10401 password (25)" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="llx@192.168.1.151:22 password">
         <serverdata>
@@ -31,6 +31,13 @@
         </serverdata>
       </paths>
       <paths name="llx@192.168.1.151:22 password (5)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="llx@192.168.1.151:22 password (6)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -156,6 +163,20 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="root@192.168.1.151:10401 password (24)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@192.168.1.151:10401 password (25)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/opt/conda/lib/python3.7/site-packages/accelerate" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="root@192.168.1.151:10401 password (3)">
         <serverdata>
           <mappings>
@@ -241,6 +262,20 @@
         </serverdata>
       </paths>
       <paths name="root@192.168.1.151:10405 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@192.168.1.151:10405 password (4)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@192.168.1.151:10409 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />

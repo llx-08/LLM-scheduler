@@ -103,8 +103,6 @@ class SequentialHook(ModelHook):
     def pre_forward(self, module, *args, **kwargs):
         for hook in self.hooks:
             args, kwargs = hook.pre_forward(module, *args, **kwargs)
-            print("in sequential hook pre forward")
-            print(inspect.getsource(hook.pre_forward))
         return args, kwargs
 
     def post_forward(self, module, output):
@@ -425,10 +423,6 @@ def attach_align_device_hook(
             `dense.weight` and `dense.bias` are used in some operations instead of calling `dense` directly.
     """
     # Attach the hook on this module if it has any direct tensor.
-    print("in attach align device hook")
-    for k, v in module.state_dict().items():
-        print(k, end=" ")
-    print()
 
     directs = named_module_tensors(module)
     full_offload = (
@@ -517,12 +511,6 @@ def attach_align_device_hook_on_blocks(
     """
     # If one device and one offload, we've got one hook.
 
-    print("in attach align device hook on blocks")
-    for k, v in module.state_dict().items():
-        print(k, end=" ")
-    print()
-    print()
-
     # add hook to all module while there is no execution_device or offload
     if not isinstance(execution_device, Mapping) and not isinstance(offload, dict):
         if not offload:
@@ -544,16 +532,9 @@ def attach_align_device_hook_on_blocks(
     if not isinstance(offload, Mapping):
         offload = {key: offload for key in execution_device.keys()}
 
-    print("check execution device")
-    print(execution_device)
-    print("check offload")
-    print(offload)
 
     # execution hook adding
     if module_name in execution_device and module_name in offload and not offload[module_name]:
-        print("execution hook adding")
-        print("module name:", module_name)
-        print("execution_device[module_name]", execution_device[module_name])
         hook = AlignDevicesHook(
             execution_device=execution_device[module_name],
             offload_buffers=offload_buffers,
@@ -563,9 +544,6 @@ def attach_align_device_hook_on_blocks(
         add_hook_to_module(module, hook)
         attach_execution_device_hook(module, execution_device[module_name])
     elif module_name in execution_device and module_name in offload:
-        print("execution hook adding with offload")
-        print("module name:", module_name)
-        print("execution_device[module_name]", execution_device[module_name])
         attach_align_device_hook(
             module,
             execution_device=execution_device[module_name],
@@ -589,10 +567,9 @@ def attach_align_device_hook_on_blocks(
         add_hook_to_module(module, hook)
 
     for child_name, child in module.named_children():
-        print("check: ", child_name)
-        print("module name:", module_name)
+
         child_name = f"{module_name}.{child_name}" if len(module_name) > 0 else child_name
-        print("child name:", child_name)
+
         attach_align_device_hook_on_blocks(
             child,
             execution_device=execution_device,
@@ -640,13 +617,6 @@ def my_attach_align_device_hook_on_blocks(
             `dense.weight` and `dense.bias` are used in some operations instead of calling `dense` directly.
     """
     # If one device and one offload, we've got one hook.
-
-    print("in my attach align device hook on blocks")
-    for k, v in module.state_dict().items():
-        print(k, end=" ")
-    print()
-    print()
-
     # add hook to all module while there is no execution_device or offload
     if not isinstance(execution_device, Mapping) and not isinstance(offload, dict):
         if not offload:
@@ -670,16 +640,8 @@ def my_attach_align_device_hook_on_blocks(
     if not isinstance(offload, Mapping):
         offload = {key: offload for key in execution_device.keys()}
 
-    print("check execution device")
-    print(execution_device)
-    print("check offload")
-    print(offload)
-
     # execution hook adding
     if module_name in execution_device and module_name in offload and not offload[module_name]:
-        print("execution hook adding")
-        print("module name:", module_name)
-        print("execution_device[module_name]", execution_device[module_name])
         hook = AlignDevicesHook(
             execution_device=execution_device[module_name],
             offload_buffers=offload_buffers,
@@ -691,9 +653,6 @@ def my_attach_align_device_hook_on_blocks(
 
         attach_execution_device_hook(module, execution_device[module_name])
     elif module_name in execution_device and module_name in offload:
-        print("execution hook adding with offload")
-        print("module name:", module_name)
-        print("execution_device[module_name]", execution_device[module_name])
         module_with_offload = attach_align_device_hook(
             module,
             execution_device=execution_device[module_name],
@@ -705,8 +664,6 @@ def my_attach_align_device_hook_on_blocks(
         )
         module_dict[module_name] = module_with_offload
         if not hasattr(module, "_hf_hook"):
-            print("in without module hook")
-            print("module name ", module_name)
             hook = AlignDevicesHook(execution_device=execution_device[module_name], io_same_device=(module_name == ""))
             add_hook_to_module(module, hook)
 
@@ -719,10 +676,8 @@ def my_attach_align_device_hook_on_blocks(
         add_hook_to_module(module, hook)
 
     for child_name, child in module.named_children():
-        print("check: ", child_name)
-        print("module name:", module_name)
+
         child_name = f"{module_name}.{child_name}" if len(module_name) > 0 else child_name
-        print("child name:", child_name)
         module_dict = my_attach_align_device_hook_on_blocks(
             child,
             module_dict=module_dict,
@@ -774,11 +729,6 @@ class CpuOffload(ModelHook):
     def pre_forward(self, module, *args, **kwargs):
         module.to(self.execution_device)
 
-        # my modification
-        print("in pre forward:")
-        for k, v in module.state_dict().items():
-            print(k, end=" ")
-            print(v)
 
         if self.prev_module_hook is not None:
             self.prev_module_hook.offload()

@@ -870,10 +870,7 @@ def load_checkpoint_in_model(
     print("in load ckpt in model")
     for k, v in model.state_dict().items():
         print(k, end=" ")
-
     print()
-    print()
-
 
     tied_params = find_tied_parameters(model)
     if offload_folder is None and device_map is not None and "disk" in device_map.values():

@@ -283,7 +283,6 @@ def disk_offload(
 
     return model
 
-
 def dispatch_model(
     model: nn.Module,
     device_map: Dict[str, Union[str, int, torch.device]],
@@ -322,13 +321,104 @@ def dispatch_model(
             called directly during the forward, for instance if a `dense` linear layer is registered, but at forward,
             `dense.weight` and `dense.bias` are used in some operations instead of calling `dense` directly.
     """
+    if not is_torch_version(">=", "1.9.0"):
+        raise NotImplementedError("Model dispatching requires torch >= 1.9.0")
+    # Error early if the device map is incomplete.
+    check_device_map(model, device_map)
 
-    print("in dispatch model")
-    for k, v in model.state_dict().items():
-        print(k, end=" ")
-    print()
-    print()
+    if main_device is None:
+        if set(device_map.values()) == {"cpu"} or set(device_map.values()) == {"cpu", "disk"}:
+            main_device = "cpu"
+        else:
+            main_device = [d for d in device_map.values() if d not in ["cpu", "disk"]][0]
 
+    if main_device != "cpu":
+        cpu_modules = [name for name, device in device_map.items() if device == "cpu"]
+        if state_dict is None and len(cpu_modules) > 0:
+            state_dict = extract_submodules_state_dict(model.state_dict(), cpu_modules)
+
+    disk_modules = [name for name, device in device_map.items() if device == "disk"]
+    if offload_dir is None and offload_index is None and len(disk_modules) > 0:
+        raise ValueError(
+            "We need an `offload_dir` to dispatch this model according to this `device_map`, the following submodules "
+            f"need to be offloaded: {', '.join(disk_modules)}."
+        )
+    if (
+        len(disk_modules) > 0
+        and offload_index is None
+        and (not os.path.isdir(offload_dir) or not os.path.isfile(os.path.join(offload_dir, "index.json")))
+    ):
+        disk_state_dict = extract_submodules_state_dict(model.state_dict(), disk_modules)
+        offload_state_dict(offload_dir, disk_state_dict)
+
+    execution_device = {
+        name: main_device if device in ["cpu", "disk"] else device for name, device in device_map.items()
+    }
+    execution_device[""] = main_device
+    offloaded_devices = ["disk"] if main_device == "cpu" else ["cpu", "disk"]
+    offload = {name: device in offloaded_devices for name, device in device_map.items()}
+    save_folder = offload_dir if len(disk_modules) > 0 else None
+    if state_dict is not None or save_folder is not None or offload_index is not None:
+        device = main_device if offload_index is not None else None
+        weights_map = OffloadedWeightsLoader(
+            state_dict=state_dict, save_folder=save_folder, index=offload_index, device=device
+        )
+    else:
+        weights_map = None
+
+    tied_params = find_tied_parameters(model)
+    attach_align_device_hook_on_blocks(
+        model,
+        execution_device=execution_device,
+        offload=offload,
+        offload_buffers=offload_buffers,
+        weights_map=weights_map,
+        preload_module_classes=preload_module_classes,
+    )
+    # Attaching the hook may break tied weights, so we retie them
+    retie_parameters(model, tied_params)
+    model.hf_device_map = device_map
+    return model
+
+
+def my_dispatch_model(
+    model: nn.Module,
+    device_map: Dict[str, Union[str, int, torch.device]],
+    main_device: Optional[torch.device] = None,
+    state_dict: Optional[Dict[str, torch.Tensor]] = None,
+    offload_dir: Optional[Union[str, os.PathLike]] = None,
+    offload_index: Optional[Dict[str, str]] = None,
+    offload_buffers: bool = False,
+    preload_module_classes: Optional[List[str]] = None,
+):
+    """
+    Dispatches a model according to a given device map. Layers of the model might be spread across GPUs, offloaded on
+    the CPU or even the disk.
+
+    Args:
+        model (`torch.nn.Module`):
+            The model to dispatch.
+        device_map (`Dict[str, Union[str, int, torch.device]]`):
+            A dictionary mapping module names in the models `state_dict` to the device they should go to. Note that
+            `"disk"` is accepted even if it's not a proper value for `torch.device`.
+        main_device (`str`, `int` or `torch.device`, *optional*):
+            The main execution device. Will default to the first device in the `device_map` different from `"cpu"` or
+            `"disk"`.
+        state_dict (`Dict[str, torch.Tensor]`, *optional*):
+            The state dict of the part of the model that will be kept on CPU.
+        offload_dir (`str` or `os.PathLike`):
+            The folder in which to offload the model weights (or where the model weights are already offloaded).
+        offload_index (`Dict`, *optional*):
+            A dictionary from weight name to their information (`dtype`/ `shape` or safetensors filename). Will default
+            to the index saved in `save_folder`.
+        offload_buffers (`bool`, *optional*, defaults to `False`):
+            Whether or not to offload the buffers with the model parameters.
+        preload_module_classes (`List[str]`, *optional*):
+            A list of classes whose instances should load all their weights (even in the submodules) at the beginning
+            of the forward. This should only be used for classes that have submodules which are registered but not
+            called directly during the forward, for instance if a `dense` linear layer is registered, but at forward,
+            `dense.weight` and `dense.bias` are used in some operations instead of calling `dense` directly.
+    """
 
     if not is_torch_version(">=", "1.9.0"):
         raise NotImplementedError("Model dispatching requires torch >= 1.9.0")
@@ -375,9 +465,6 @@ def dispatch_model(
         )
     else:
         weights_map = None
-
-    print("in dispatch_model")
-    print(execution_device)
 
     tied_params = find_tied_parameters(model)
     # attach_align_device_hook_on_blocks(
